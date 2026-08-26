@@ -1,0 +1,9 @@
+# The renderer itself
+numpy>=1.20
+pillow>=9.0
+
+# Needed only to compile a .grf (and to read nmlc's own copy of the palette)
+nml>=0.7
+
+# Tests
+pytest>=7

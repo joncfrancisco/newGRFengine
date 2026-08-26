@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "newgrfengine"
+version = "0.1.0"
+description = "An OpenTTD sprite renderer for building NewGRFs from 3D models"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { file = "LICENSE" }
+dependencies = ["numpy>=1.20", "pillow>=9.0"]
+
+[project.optional-dependencies]
+# nml is only needed to compile a .grf, and to prefer nmlc's own copy of the
+# DOS palette over the one bundled here. The renderer runs without it.
+grf = ["nml>=0.7"]
+dev = ["pytest>=7"]
+
+[project.scripts]
+newgrfengine = "newgrfengine.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["newgrfengine*"]
+
+[tool.setuptools.package-data]
+newgrfengine = ["data/*.gpl"]
