@@ -107,12 +107,13 @@ def main():
            sheet.nml_spritesets("longsprite/longsprite.png", prefix="ss_"),
            # The predicate is the caller's: it depends on how the set lays its
            # articulation out, and this engine will not guess it.
+           # prefix matches the "ss_" given to nml_spritesets() above, not
+           # that plus the vehicle name too - see nml_switches()'s docstring.
            nml_switches("cab",
                         "other_veh_curv_info(1) == 0 && "
                         "other_veh_curv_info(-1) == 0 && "
                         "other_veh_z_offset(1) == 0 && "
-                        "other_veh_z_offset(-1) == 0",
-                        prefix="ss_cab_")]
+                        "other_veh_z_offset(-1) == 0")]
     with open(os.path.join(OUT, "longsprite.pnml"), "w") as fh:
         fh.write("\n\n".join(nml))
 

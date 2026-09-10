@@ -38,7 +38,7 @@ import math
 
 import numpy as np
 
-from .geometry import Quad, direction_angle, project, rotate_z
+from .geometry import NUM_DIRS, Quad, direction_angle, project, rotate_z
 from .model import Model
 from .render import DEFAULT, Sprite, render_model
 
@@ -207,9 +207,23 @@ def nml_switches(name, straight, feature="FEAT_TRAINS", prefix="ss_"):
     The polarity is spelled out here rather than buried in a helper: on a
     straight the middle part draws the whole vehicle and the end parts draw
     nothing; otherwise each part draws its own third.
+
+    `prefix` must be the *same bare namespace* passed to the sheet's own
+    `nml_spritesets(prefix=...)` - not that plus the vehicle name too, or the
+    two halves of the generated file disagree: a row named "cab_full" with
+    `nml_spritesets(prefix="ss_")` produces `ss_cab_full`, so `name="cab"`
+    here wants `prefix="ss_"` (the default), not `prefix="ss_cab_"`.
+
+    The empty spriteset the front/back switches fall back to on a straight -
+    `{prefix}{name}_empty` - is generated here too, as literal empty real
+    sprites rather than a lookup into the sheet, since there is no artwork to
+    reference for "draw nothing".
     """
     p = prefix + name
+    empty_lines = "\n".join("    []" for _ in range(NUM_DIRS))
     return (
+        "spriteset({p}_empty) {{\n{empty}\n}}\n"
+        "\n"
         "/* {name}: one long sprite on a straight, three pieces otherwise. */\n"
         "switch ({feat}, SELF, sw_{name}_straight, {straight}) {{ return; }}\n"
         "\n"
@@ -225,4 +239,4 @@ def nml_switches(name, straight, feature="FEAT_TRAINS", prefix="ss_"):
         "    1: {p}_empty;\n"
         "    {p}_back;\n"
         "}}\n"
-    ).format(name=name, feat=feature, straight=straight, p=p)
+    ).format(name=name, feat=feature, straight=straight, p=p, empty=empty_lines)

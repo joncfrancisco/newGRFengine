@@ -67,7 +67,7 @@ def cmd_palette(args):
     draw.text((8, 8), "OpenTTD DOS palette. Crossed entries are reserved - the "
                       "game rewrites them at draw time:", fill=(230, 232, 236))
     draw.text((8, 24), "0x00 transparent   0x50-0x57 company colour 2   "
-                       "0xC6-0xCD company colour 1   0xF5-0xFE animated   "
+                       "0xC6-0xCD company colour 1   0xE3-0xFE animated   "
                        "0xFF white", fill=(180, 186, 194))
     out = args.output or "palette_key.png"
     img.save(out)
@@ -113,13 +113,19 @@ def _check_one(path, two_cc):
     used = set(int(i) for i in np.unique(pixels))
     problems = 0
 
-    palette = np.array(img.getpalette()[:768], dtype=np.int16).reshape(256, 3)
-    wrong = sorted(i for i in used if not (palette[i] == PAL[i]).all())
-    if wrong:
+    raw = img.getpalette() or []
+    if len(raw) != 768:
         problems += 1
-        print("  ERROR  {} used indices do not hold the DOS palette's colour "
-              "(first: {}) - the sheet was saved through some other "
-              "palette".format(len(wrong), wrong[:6]))
+        print("  ERROR  palette holds {} entries, not 256 - the sheet was "
+              "saved through some other palette".format(len(raw) // 3))
+    else:
+        palette = np.array(raw, dtype=np.int16).reshape(256, 3)
+        wrong = sorted(i for i in used if not (palette[i] == PAL[i]).all())
+        if wrong:
+            problems += 1
+            print("  ERROR  {} used indices do not hold the DOS palette's "
+                  "colour (first: {}) - the sheet was saved through some "
+                  "other palette".format(len(wrong), wrong[:6]))
 
     for name, indices, always, why in COMPANY_RANGES:
         hit = sorted(used & set(indices))

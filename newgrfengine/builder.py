@@ -114,6 +114,7 @@ class Project:
         self.extra_nml = []
         self.lang = nw.Lang()
         self.sheet = None
+        self.rendered = {}
 
     # -- assembly -------------------------------------------------------------
 
@@ -124,9 +125,22 @@ class Project:
     def vehicle(self, *args, **kwargs):
         return self.add(Vehicle(*args, **kwargs))
 
-    def add_nml(self, text, heading=None):
-        """Raw NML - switches, callbacks, anything this module does not model."""
-        self.extra_nml.append((text, heading))
+    def add_nml(self, text, heading=None, position="before_items"):
+        """Raw NML - switches, callbacks, anything this module does not model.
+
+        `position` is where the text lands relative to the generated item()
+        blocks: "before_items" (the default - templates, spritesets, switches
+        that the properties below reference) or "after_items", which is where
+        a parameter-guarded override block belongs. NML applies Action 0
+        records in file order, so an override emitted *before* the base
+        definition it is meant to change is silently overwritten by it rather
+        than the other way around.
+        """
+        if position not in ("before_items", "after_items"):
+            raise ValueError(
+                "position must be 'before_items' or 'after_items', got {!r}"
+                .format(position))
+        self.extra_nml.append((text, heading, position))
         return self
 
     # -- paths ----------------------------------------------------------------
@@ -190,10 +204,14 @@ class Project:
             doc.add("".join(tables))
         doc.add(self.sheet.nml_templates(), heading="sprite templates")
         doc.add(self.sheet.nml_spritesets(self.sheet_name), heading="spritesets")
-        for text, heading in self.extra_nml:
-            doc.add(text, heading=heading)
+        for text, heading, position in self.extra_nml:
+            if position == "before_items":
+                doc.add(text, heading=heading)
         doc.add("\n\n".join(self._item(v) for v in self.vehicles),
                 heading="vehicles")
+        for text, heading, position in self.extra_nml:
+            if position == "after_items":
+                doc.add(text, heading=heading)
         return doc.text()
 
     def _item(self, v):
@@ -231,7 +249,13 @@ class Project:
 
     # -- previews -------------------------------------------------------------
 
+    def _require_rendered(self):
+        if not self.rendered:
+            raise RuntimeError(
+                "call render() or build() before writing a preview")
+
     def write_preview(self, filename=None, scale=4):
+        self._require_rendered()
         filename = filename or (self.name + "_preview.png")
         entries = [(v.ident, self.rendered[v.ident]) for v in self.vehicles]
         path = self.path(filename)
@@ -240,6 +264,7 @@ class Project:
 
     def write_consist(self, idents, filename=None, direction=1, scale=4):
         """A preview of the named vehicles coupled up, at the game's spacing."""
+        self._require_rendered()
         filename = filename or (self.name + "_consist.png")
         by_id = {v.ident: v for v in self.vehicles}
         items = [(self.rendered[i], by_id[i].slot) for i in idents]
