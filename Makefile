@@ -1,21 +1,21 @@
-PYTHON ?= python3
-DEMO   := examples/demo
+PYTHON   ?= python3
+EXAMPLES := demo bilevel
 
-.PHONY: all demo check test preview palette clean
+.PHONY: all check test palette clean longsprite $(EXAMPLES)
 
-all: demo
+all: $(EXAMPLES)
 
-## Build the demonstration set: sprites, NML, language file and .grf
-demo:
-	cd $(DEMO) && $(PYTHON) build.py
+## Build one example set: sprites, NML, language file and .grf
+$(EXAMPLES):
+	cd examples/$@ && $(PYTHON) build.py
 
 ## Render the long-sprite demonstration (overhang, sliced and reassembled)
 longsprite:
-	cd $(DEMO) && $(PYTHON) longsprite_demo.py
+	cd examples/demo && $(PYTHON) longsprite_demo.py
 
 ## Audit every generated sheet for the mistakes that only show up in game
-check: demo
-	$(PYTHON) -m newgrfengine check $(DEMO)/sprites/*.png
+check: $(EXAMPLES)
+	$(PYTHON) -m newgrfengine check $(foreach ex,$(EXAMPLES),examples/$(ex)/sprites/*.png)
 
 ## Run the test suite
 test:
@@ -26,7 +26,10 @@ palette:
 	$(PYTHON) -m newgrfengine palette palette_key.png
 
 clean:
-	rm -rf $(DEMO)/sprites $(DEMO)/lang $(DEMO)/demo.pnml $(DEMO)/demo.grf \
-	       $(DEMO)/demo_preview.png $(DEMO)/demo_consist.png \
-	       $(DEMO)/longsprite $(DEMO)/.nmlcache palette_key.png
+	for ex in $(EXAMPLES); do \
+		rm -rf examples/$$ex/sprites examples/$$ex/lang examples/$$ex/*.pnml \
+		       examples/$$ex/*.grf examples/$$ex/*_preview.png \
+		       examples/$$ex/*_consist.png examples/$$ex/.nmlcache; \
+	done
+	rm -rf examples/demo/longsprite palette_key.png
 	find . -name __pycache__ -type d -prune -exec rm -rf {} +
