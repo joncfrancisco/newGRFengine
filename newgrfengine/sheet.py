@@ -94,6 +94,9 @@ class SpriteSheet:
         self.gap = int(gap)
         self.background = int(background)
         self.rows = []
+        self._cell = None
+        self._origin = None
+        self._views = None
 
     def add(self, name, sprites, purchase=None):
         """Add one vehicle's sprites, and optionally its purchase-menu sprite."""
@@ -128,7 +131,8 @@ class SpriteSheet:
                 "grid layout needs every row to hold the same number of views; "
                 "found {}. Use the tight layout for mixed sets.".format(
                     sorted(counts)))
-        self.views = counts.pop() if counts else 0
+        views = counts.pop() if counts else 0
+        self._views = views
 
         # One origin that every sprite on the sheet can be drawn around. Taking
         # the extremes over the whole sheet is what makes a single shared
@@ -141,8 +145,8 @@ class SpriteSheet:
         bottom = max([s.offset_y + s.height for s in every] + [0])
         cell_w = left + right + self.gap
         cell_h = top + bottom + self.gap
-        self.origin = (left, top)
-        self.cell = (cell_w, cell_h)
+        self._origin = (left, top)
+        self._cell = (cell_w, cell_h)
 
         def place(sprite, column, y):
             cx = column * cell_w
@@ -152,12 +156,12 @@ class SpriteSheet:
                     sprite.width, sprite.height)
 
         y = 0
-        columns = self.views + (1 if any(r.purchase for r in self.rows) else 0)
+        columns = views + (1 if any(r.purchase for r in self.rows) else 0)
         for row in self.rows:
             row.top = y
             row.height = cell_h
             row.boxes = [place(s, i, y) for i, s in enumerate(row.sprites)]
-            row.purchase_box = (place(row.purchase, self.views, y)
+            row.purchase_box = (place(row.purchase, views, y)
                                 if row.purchase else None)
             y += cell_h
         return max(1, columns * cell_w), max(1, y)
@@ -166,6 +170,36 @@ class SpriteSheet:
         if self.layout == GRID:
             return self._layout_grid()
         return self._layout_tight()
+
+    # -- grid geometry ----------------------------------------------------------
+    #
+    # These three only mean anything in GRID layout, where every vehicle shares
+    # one cell size and one reference point; TIGHT packs each sprite to its own
+    # bounding box and has no such shared geometry. They run the layout on
+    # first access rather than requiring layout_sheet() to have been called
+    # already, so touching them before image()/save()/nml_templates() reports
+    # the real numbers instead of an AttributeError.
+
+    @property
+    def cell(self):
+        """The shared (width, height) of one grid cell, or None in TIGHT layout."""
+        if self._cell is None and self.layout == GRID:
+            self._layout_grid()
+        return self._cell
+
+    @property
+    def origin(self):
+        """The shared reference point within a cell, or None in TIGHT layout."""
+        if self._origin is None and self.layout == GRID:
+            self._layout_grid()
+        return self._origin
+
+    @property
+    def views(self):
+        """The number of direction views per row, or None in TIGHT layout."""
+        if self._views is None and self.layout == GRID:
+            self._layout_grid()
+        return self._views
 
     # -- output ---------------------------------------------------------------
 

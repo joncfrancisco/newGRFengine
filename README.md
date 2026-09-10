@@ -140,7 +140,7 @@ are not paint — the game rewrites them at draw time:
 | `0x00` | transparent |
 | `0x50–0x57` | the second company colour, in a set that sets a 2CC flag |
 | `0xC6–0xCD` | the company colour, always |
-| `0xF5–0xFE` | animated: fire, water sparkle, the fizzy-drink glow |
+| `0xE3–0xFE` | animated: fire, water sparkle, the fizzy-drink glow |
 | `0xFF` | pure white, used as a marker in several places |
 
 Quantisation therefore works against an allow-list, not the whole 256. `SAFE`
@@ -372,6 +372,16 @@ is whether the shapes read at 24 pixels, not whether the stripes are pretty.
 
 ---
 
+## The bilevel example
+
+`examples/bilevel` is the better answer to "show me the smallest complete
+project": one vehicle, one file, model to compiled `.grf`, instead of the
+demo's six. A double-decker commuter coach needs no new primitive — its
+silhouette comes entirely from height, two `window_row()` bands separated by
+a belt `side_decal()` marking the floor between levels.
+
+---
+
 ## Layout
 
 ```
@@ -392,6 +402,7 @@ newgrfengine/
   cli.py          palette / check / build
   data/           the DOS palette, so nml is not needed to render
 examples/demo/    six vehicles, one compiled GRF, the long-sprite demo
+examples/bilevel/ one double-decker coach, the smallest complete project
 tests/            the arithmetic that is otherwise only checked by eye
 ```
 

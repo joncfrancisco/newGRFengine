@@ -9,7 +9,7 @@ them at draw time:
     0x00        transparent
     0x50-0x57   the second company colour, when a vehicle sets its 2CC flag
     0xC6-0xCD   the (first) company colour, always
-    0xF5-0xFE   the animated ranges: fire, water sparkle, the fizzy-drink glow
+    0xE3-0xFE   the animated ranges: fire, water sparkle, the fizzy-drink glow
     0xFF        pure white, used as a marker in several places
 
 Anything a model paints into one of those ranges stops being the colour it
@@ -35,7 +35,11 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 TRANSPARENT = 0
 CC1_RAMP = tuple(range(0xC6, 0xCE))      # 198-205, company colour 1
 CC2_RAMP = tuple(range(0x50, 0x58))      # 80-87, company colour 2 under 2CC
-ANIMATED = tuple(range(0xF5, 0xFF))      # 245-254, cycled by the game
+#: 227-254, cycled by the game. nmlc's own check for the DOS palette
+#: (nml/spriteencoder.py) uses 0xE3-0xFE, wider than the 0xF5-0xFE this used
+#: to declare - the 18 indices in between are browns, oranges and yellows
+#: that `check` would otherwise wave through as ordinary paint. See #12.
+ANIMATED = tuple(range(0xE3, 0xFF))
 PURE_WHITE = 0xFF
 
 #: Indices safe for ordinary painted colour in any set.

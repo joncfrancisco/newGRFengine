@@ -8,6 +8,8 @@ that is hard to attribute. These pin down the properties that would otherwise
 only be checked by eye.
 """
 
+import glob
+import importlib.util
 import math
 import os
 import subprocess
@@ -22,9 +24,9 @@ from newgrfengine import (COMPANY, GRID, RAIL, ROAD, TIGHT, Lighting, Model,
                           SpriteSheet, Vehicle, box, direction_angle, loft,
                           prism, project, render_model, render_purchase,
                           section, window_row)
-from newgrfengine.geometry import TILE_PX, TILE_UNITS, VEHICLE_LENGTH
-from newgrfengine.longsprite import (clip_x, render_long, split_overhang,
-                                     step_vector)
+from newgrfengine.geometry import NUM_DIRS, TILE_PX, TILE_UNITS, VEHICLE_LENGTH
+from newgrfengine.longsprite import (clip_x, nml_switches, render_long,
+                                     split_overhang, step_vector)
 from newgrfengine.palette import CC1_RAMP, PAL, SAFE, SAFE_2CC, Quantiser
 from newgrfengine.parts import bogies
 from newgrfengine.render import SIDE_ON
@@ -133,6 +135,25 @@ def test_quantiser_is_exact_on_palette_colours():
     q = Quantiser(SAFE)
     for index in (1, 40, 100, 197):
         assert q.index_of(tuple(PAL[index])) == index
+
+
+def test_animated_range_matches_nmlc():
+    """Pin ANIMATED against nmlc's own DOS-palette animated check (issue #12),
+    so the two ranges cannot silently drift apart again. nmlc has no public
+    constant for this - it is a literal comparison in spriteencoder.py - so
+    this greps its source rather than importing a name that does not exist."""
+    import inspect
+
+    try:
+        from nml import spriteencoder
+    except ImportError:
+        pytest.skip("nml not installed")
+    source = inspect.getsource(spriteencoder)
+    assert "0xE3 <= p <= 0xFE" in source, (
+        "nmlc's DOS-palette animated range literal has moved; update "
+        "newgrfengine.palette.ANIMATED (and the README/cli text) to match")
+    from newgrfengine.palette import ANIMATED
+    assert ANIMATED == tuple(range(0xE3, 0xFF))
 
 
 # ------------------------------------------------------------- rendering --
@@ -285,6 +306,64 @@ def test_overhang_actually_overhangs():
     assert any(not s.is_empty() for s in parts["front"] + parts["back"])
 
 
+def test_nml_switches_names_agree_with_nml_spritesets():
+    """The two halves of a long-sprite file must reference the same spriteset
+    names - issue #10, where a doubled prefix made them diverge silently."""
+    sheet = SpriteSheet("t", layout=TIGHT)
+    parts = render_long(_long_model(), 8)
+    for key in ("full", "back", "body", "front"):
+        sheet.add("cab_" + key, parts[key])
+    sprite_nml = sheet.nml_spritesets("t.png")
+    switch_nml = nml_switches("cab", "1")
+    for key in ("full", "back", "body", "front"):
+        assert "spriteset(ss_cab_{},".format(key) in sprite_nml
+        assert "ss_cab_{}".format(key) in switch_nml
+    assert "ss_cab_cab" not in switch_nml, "the doubled-prefix regression"
+
+
+def test_nml_switches_emits_the_empty_spriteset_it_references():
+    switch_nml = nml_switches("cab", "1")
+    assert "spriteset(ss_cab_empty)" in switch_nml
+    body = switch_nml.split("spriteset(ss_cab_empty) {", 1)[1].split("}", 1)[0]
+    assert body.count("[]") == NUM_DIRS
+
+
+def test_long_sprite_nml_compiles_if_nmlc_is_available(tmp_path):
+    """Regression test for issue #10: nmlc must accept the templates,
+    spritesets and switches nml_switches() and the sheet emit together,
+    wrapped in the minimal grf{} block a caller's own project would supply."""
+    try:
+        subprocess.run(["nmlc", "--version"], capture_output=True)
+    except (OSError, FileNotFoundError):
+        pytest.skip("nmlc not installed")
+
+    parts = render_long(_long_model(), 8)
+    sheet = SpriteSheet("longsprite", layout=TIGHT)
+    for key in ("full", "back", "body", "front"):
+        sheet.add("cab_" + key, parts[key])
+    sheet.save(str(tmp_path / "longsprite.png"))
+
+    body = "\n\n".join([sheet.nml_templates(),
+                        sheet.nml_spritesets("longsprite.png"),
+                        nml_switches("cab", "1")])
+    wrapped = ('grf {\n'
+              '    grfid:                  "TST\\01";\n'
+              '    name:                   string(STR_NAME);\n'
+              '    desc:                   string(STR_NAME);\n'
+              '    version:                1;\n'
+              '    min_compatible_version: 1;\n'
+              '}\n\n' + body)
+    (tmp_path / "t.pnml").write_text(wrapped)
+    lang_dir = tmp_path / "lang"
+    lang_dir.mkdir()
+    (lang_dir / "english.lng").write_text("##grflangid 0x01\nSTR_NAME: test\n")
+
+    result = subprocess.run(
+        ["nmlc", "--grf", "t.grf", "--lang-dir", "lang", "t.pnml"],
+        cwd=str(tmp_path), capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
 # ----------------------------------------------------------------- sheets --
 
 def _sheet(layout):
@@ -348,6 +427,29 @@ def test_sheet_image_is_paletted():
     image = _sheet(TIGHT).image()
     assert image.mode == "P"
     assert image.getpalette()[:3] == [0, 0, 255]     # index 0, transparent blue
+
+
+def test_grid_cell_origin_views_available_before_any_layout_call():
+    """Touching these before layout_sheet()/image()/save() ran used to raise
+    AttributeError - issue #13. They should run the layout on first access."""
+    sheet = _sheet(GRID)
+    assert sheet.cell is not None and len(sheet.cell) == 2
+    assert sheet.origin is not None and len(sheet.origin) == 2
+    assert sheet.views == NUM_DIRS
+
+
+def test_tight_cell_origin_views_stay_none():
+    """TIGHT has no shared cell geometry, so these should read None rather
+    than the stale/absent state issue #13 described."""
+    sheet = _sheet(TIGHT)
+    assert sheet.cell is None
+    assert sheet.origin is None
+    assert sheet.views is None
+
+
+def test_empty_grid_sheet_views_does_not_raise():
+    sheet = SpriteSheet("empty", layout=GRID)
+    assert sheet.views == 0
 
 
 # ---------------------------------------------------------------- models --
@@ -433,14 +535,43 @@ def test_vehicle_rejects_a_slot_outside_1_to_8():
 
 # ------------------------------------------------------------------ build --
 
-DEMO = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                    "examples", "demo")
+EXAMPLES_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "examples")
+DEMO = os.path.join(EXAMPLES_DIR, "demo")
+
+# Discovered by directory, not by name: every example script is called
+# build.py, so `import build` after a bare sys.path.insert would return
+# whichever one was imported first regardless of what got prepended - a
+# second example would silently re-test the first and pass. Loading each by
+# its explicit file path avoids the collision. See issue #16.
+EXAMPLE_DIRS = sorted(
+    d for d in glob.glob(os.path.join(EXAMPLES_DIR, "*"))
+    if os.path.isfile(os.path.join(d, "build.py")))
+
+
+def _load_build_module(example_dir):
+    """Load one example's build.py by path - see EXAMPLE_DIRS above.
+
+    build.py itself imports sibling modules by bare name (demo's `models`),
+    the way it can when run as a script from its own directory, so that
+    directory has to be on sys.path for the same reason - just scoped to
+    the duration of this one import rather than left there permanently.
+    """
+    path = os.path.join(example_dir, "build.py")
+    spec = importlib.util.spec_from_file_location(
+        "example_build_" + os.path.basename(example_dir), path)
+    module = importlib.util.module_from_spec(spec)
+    sys.path.insert(0, example_dir)
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.path.remove(example_dir)
+    return module
 
 
 @pytest.mark.skipif(not os.path.isdir(DEMO), reason="demo not present")
 def test_demo_project_generates_valid_nml():
-    sys.path.insert(0, DEMO)
-    import build as demo_build
+    demo_build = _load_build_module(DEMO)
     project = demo_build.make_project()
     project.render(verbose=False)
     text = project.nml_text()
@@ -449,13 +580,16 @@ def test_demo_project_generates_valid_nml():
     assert "spriteset(ss_bus_buy," in text
 
 
-@pytest.mark.skipif(not os.path.isdir(DEMO), reason="demo not present")
-def test_demo_compiles_if_nmlc_is_available():
+@pytest.mark.skipif(not EXAMPLE_DIRS, reason="no examples present")
+@pytest.mark.parametrize("example_dir", EXAMPLE_DIRS,
+                         ids=[os.path.basename(d) for d in EXAMPLE_DIRS])
+def test_example_compiles_if_nmlc_is_available(example_dir):
     try:
         subprocess.run(["nmlc", "--version"], capture_output=True)
     except (OSError, FileNotFoundError):
         pytest.skip("nmlc not installed")
-    result = subprocess.run([sys.executable, "build.py"], cwd=DEMO,
+    result = subprocess.run([sys.executable, "build.py"], cwd=example_dir,
                             capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert os.path.exists(os.path.join(DEMO, "demo.grf"))
+    name = os.path.basename(example_dir)
+    assert os.path.exists(os.path.join(example_dir, name + ".grf"))
