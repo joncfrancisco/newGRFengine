@@ -61,11 +61,16 @@ class Quad:
         self.normal = tuple(float(c) for c in normal)
         self.top = top          # horizontal surface: lit as a roof, not a flank
         self.layer = layer
-        # An arbitrary small integer the renderer can carry through to a
-        # per-pixel map, so a caller can ask which part of the model painted
-        # each pixel. Used to cut a long sprite into pieces that reassemble
-        # exactly; ignored otherwise.
-        self.tag = int(tag)
+        # A small integer the renderer can carry through to a per-pixel map,
+        # so a caller can ask which part of the model painted each pixel.
+        # Used to cut a long sprite into pieces that reassemble exactly;
+        # ignored otherwise. It ends up in an 8bpp label image (render.py),
+        # so it must fit in a byte - anything above 255 would clamp silently
+        # and merge with whatever else lands on 255.
+        tag = int(tag)
+        if not 0 <= tag <= 255:
+            raise ValueError("tag must be 0..255; got {}".format(tag))
+        self.tag = tag
 
     def copy(self):
         q = Quad.__new__(Quad)

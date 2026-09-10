@@ -33,9 +33,9 @@ from .materials import (COMPANY, COMPANY2, L_DECAL, L_DOOR, L_LIGHT, L_SOLID,
                         shade)
 from .model import Model
 from .palette import PAL, SAFE, SAFE_2CC, Quantiser
-from .parts import (LIGHT, PANTO, UNDER, WHEEL, axles, bellows, bogies,
-                    cab_glass, doors, headlights, pantograph, roof_pod, skirt,
-                    trolley_poles, truck, underframe)
+from .parts import (BOGIE, LIGHT, PANTO, ROOF_POD, TAIL, UNDER, WHEEL, axles,
+                    bellows, bogies, cab_glass, doors, headlights, pantograph,
+                    roof_pod, skirt, trolley_poles, truck, underframe)
 from .preview import consist, contact_sheet
 from .primitives import (box, end_decal, loft, plate, prism, ribs, section,
                          side_decal, strut, top_decal, window_row)
@@ -54,9 +54,9 @@ __all__ = [
     "COMPANY", "COMPANY2", "L_DECAL", "L_DOOR", "L_LIGHT", "L_SOLID",
     "L_STRIPE", "L_TEXTURE", "L_WINDOW", "Material", "material", "shade",
     "Model", "PAL", "SAFE", "SAFE_2CC", "Quantiser",
-    "LIGHT", "PANTO", "UNDER", "WHEEL", "axles", "bellows", "bogies",
-    "cab_glass", "doors", "headlights", "pantograph", "roof_pod", "skirt",
-    "trolley_poles", "truck", "underframe",
+    "BOGIE", "LIGHT", "PANTO", "ROOF_POD", "TAIL", "UNDER", "WHEEL", "axles",
+    "bellows", "bogies", "cab_glass", "doors", "headlights", "pantograph",
+    "roof_pod", "skirt", "trolley_poles", "truck", "underframe",
     "consist", "contact_sheet",
     "box", "end_decal", "loft", "plate", "prism", "ribs", "section",
     "side_decal", "strut", "top_decal", "window_row",

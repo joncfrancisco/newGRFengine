@@ -103,11 +103,20 @@ class Model:
         return Model(out)
 
     def tagged(self, tag):
-        """A copy with every quad carrying `tag`, for per-piece pixel maps."""
+        """A copy with every quad carrying `tag`, for per-piece pixel maps.
+
+        `tag` must be 1..255: it ends up in an 8bpp label image (render.py),
+        where 0 means untagged, so 0 would be indistinguishable from that and
+        anything above 255 would clamp silently and merge with whatever else
+        lands on 255.
+        """
+        tag = int(tag)
+        if not 1 <= tag <= 255:
+            raise ValueError("tag must be 1..255; got {}".format(tag))
         out = []
         for q in self.quads:
             nq = q.copy()
-            nq.tag = int(tag)
+            nq.tag = tag
             out.append(nq)
         return Model(out)
 
