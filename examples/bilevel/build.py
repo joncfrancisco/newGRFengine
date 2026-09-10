@@ -10,9 +10,9 @@ Run it from this directory:
 
 Nothing about a double-decker needs a new primitive. Its silhouette comes
 entirely from height: the body is the same box() as the single-level `coach`
-in examples/demo, just drawn about twice as tall, with two window_row() bands
-separated by a belt decal marking the floor between levels, and doors tall
-enough to span both levels at the vestibule.
+in examples/demo, but the complete vehicle is about 15% taller, with two
+window_row() bands separated by a belt decal marking the floor between levels
+and doors tall enough to span both levels at the vestibule.
 """
 
 import os
@@ -47,16 +47,16 @@ def bilevel_coach():
     hw = HALF_W
     model = bogies(14.5, hw, top=2.55, inset=2.3)
     model += underframe(14.5, hw, 2.3, 3.35)
-    model += box(-7.25, 7.25, -hw, hw, 3.15, 12.2, STEEL, top_mat=STEEL)
-    model += box(-6.95, 6.95, -hw * 0.87, hw * 0.87, 12.2, 13.2, ROOF,
+    model += box(-7.25, 7.25, -hw, hw, 3.15, 10.25, STEEL, top_mat=STEEL)
+    model += box(-6.95, 6.95, -hw * 0.87, hw * 0.87, 10.25, 10.8, ROOF,
                 top_mat=ROOF)
-    model += ribs(-7.05, 7.05, 3.6, 12.2, hw, shade(STEEL, 0.86))
-    model += window_row(-6.2, 6.2, 4.3, 5.9, hw, 7, GLASS)      # lower level
-    model += side_decal(-7.0, 7.0, 6.15, 6.65, hw, BELT)        # inter-level floor
-    model += window_row(-6.2, 6.2, 6.95, 9.55, hw, 7, GLASS)    # upper level
-    model += doors([-5.25, 5.25], 3.35, 9.7, hw, shade(STEEL, 0.78))
-    model += roof_pod(-2.2, 2.2, hw, 13.2)
-    model += side_decal(-7.0, 7.0, 10.3, 11.0, hw, COMPANY)
+    model += ribs(-7.05, 7.05, 3.6, 10.25, hw, shade(STEEL, 0.86))
+    model += window_row(-6.2, 6.2, 4.0, 5.4, hw, 7, GLASS)      # lower level
+    model += side_decal(-7.0, 7.0, 5.7, 6.1, hw, BELT)          # inter-level floor
+    model += window_row(-6.2, 6.2, 6.35, 8.7, hw, 7, GLASS)     # upper level
+    model += doors([-5.25, 5.25], 3.35, 8.9, hw, shade(STEEL, 0.78))
+    model += roof_pod(-2.2, 2.2, hw, 10.8)
+    model += side_decal(-7.0, 7.0, 9.15, 9.7, hw, COMPANY)
     return model
 
 
