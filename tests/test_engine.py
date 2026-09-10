@@ -8,6 +8,8 @@ that is hard to attribute. These pin down the properties that would otherwise
 only be checked by eye.
 """
 
+import glob
+import importlib.util
 import math
 import os
 import subprocess
@@ -394,14 +396,43 @@ def test_prism_normals_are_unit_length():
 
 # ------------------------------------------------------------------ build --
 
-DEMO = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                    "examples", "demo")
+EXAMPLES_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "examples")
+DEMO = os.path.join(EXAMPLES_DIR, "demo")
+
+# Discovered by directory, not by name: every example script is called
+# build.py, so `import build` after a bare sys.path.insert would return
+# whichever one was imported first regardless of what got prepended - a
+# second example would silently re-test the first and pass. Loading each by
+# its explicit file path avoids the collision. See issue #16.
+EXAMPLE_DIRS = sorted(
+    d for d in glob.glob(os.path.join(EXAMPLES_DIR, "*"))
+    if os.path.isfile(os.path.join(d, "build.py")))
+
+
+def _load_build_module(example_dir):
+    """Load one example's build.py by path - see EXAMPLE_DIRS above.
+
+    build.py itself imports sibling modules by bare name (demo's `models`),
+    the way it can when run as a script from its own directory, so that
+    directory has to be on sys.path for the same reason - just scoped to
+    the duration of this one import rather than left there permanently.
+    """
+    path = os.path.join(example_dir, "build.py")
+    spec = importlib.util.spec_from_file_location(
+        "example_build_" + os.path.basename(example_dir), path)
+    module = importlib.util.module_from_spec(spec)
+    sys.path.insert(0, example_dir)
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.path.remove(example_dir)
+    return module
 
 
 @pytest.mark.skipif(not os.path.isdir(DEMO), reason="demo not present")
 def test_demo_project_generates_valid_nml():
-    sys.path.insert(0, DEMO)
-    import build as demo_build
+    demo_build = _load_build_module(DEMO)
     project = demo_build.make_project()
     project.render(verbose=False)
     text = project.nml_text()
@@ -410,13 +441,16 @@ def test_demo_project_generates_valid_nml():
     assert "spriteset(ss_bus_buy," in text
 
 
-@pytest.mark.skipif(not os.path.isdir(DEMO), reason="demo not present")
-def test_demo_compiles_if_nmlc_is_available():
+@pytest.mark.skipif(not EXAMPLE_DIRS, reason="no examples present")
+@pytest.mark.parametrize("example_dir", EXAMPLE_DIRS,
+                         ids=[os.path.basename(d) for d in EXAMPLE_DIRS])
+def test_example_compiles_if_nmlc_is_available(example_dir):
     try:
         subprocess.run(["nmlc", "--version"], capture_output=True)
     except (OSError, FileNotFoundError):
         pytest.skip("nmlc not installed")
-    result = subprocess.run([sys.executable, "build.py"], cwd=DEMO,
+    result = subprocess.run([sys.executable, "build.py"], cwd=example_dir,
                             capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert os.path.exists(os.path.join(DEMO, "demo.grf"))
+    name = os.path.basename(example_dir)
+    assert os.path.exists(os.path.join(example_dir, name + ".grf"))

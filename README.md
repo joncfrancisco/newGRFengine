@@ -372,6 +372,16 @@ is whether the shapes read at 24 pixels, not whether the stripes are pretty.
 
 ---
 
+## The bilevel example
+
+`examples/bilevel` is the better answer to "show me the smallest complete
+project": one vehicle, one file, model to compiled `.grf`, instead of the
+demo's six. A double-decker commuter coach needs no new primitive — its
+silhouette comes entirely from height, two `window_row()` bands separated by
+a belt `side_decal()` marking the floor between levels.
+
+---
+
 ## Layout
 
 ```
@@ -392,6 +402,7 @@ newgrfengine/
   cli.py          palette / check / build
   data/           the DOS palette, so nml is not needed to render
 examples/demo/    six vehicles, one compiled GRF, the long-sprite demo
+examples/bilevel/ one double-decker coach, the smallest complete project
 tests/            the arithmetic that is otherwise only checked by eye
 ```
 
