@@ -133,8 +133,14 @@ def test_quantiser_returns_only_allowed_indices():
 
 def test_quantiser_is_exact_on_palette_colours():
     q = Quantiser(SAFE)
-    for index in (1, 40, 100, 197):
+    for index in (1, 40, 100, 197, *range(0xCE, 0xD7)):
         assert q.index_of(tuple(PAL[index])) == index
+
+
+def test_safe_includes_ordinary_colours_after_company_colour_one():
+    """The CC1 ramp ends at 0xCD; 0xCE-0xD6 are ordinary colours (#14)."""
+    assert set(range(0xCE, 0xD7)).issubset(SAFE)
+    assert not set(range(0xD7, 0xE3)) & set(SAFE)
 
 
 def test_animated_range_matches_nmlc():

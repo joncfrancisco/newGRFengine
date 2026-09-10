@@ -3,6 +3,7 @@ Command line: `python -m newgrfengine <command>`.
 
     palette [out.png]     draw a key of the OpenTTD DOS palette, with the
                           ranges a sprite must not paint into marked
+    quantise <rgb>...     show the palette colour an RGB value becomes
     check <sheet.png>...  audit a finished sheet for the mistakes that only
                           show up in game
     build <module>        import a project module and build it
@@ -25,7 +26,8 @@ import sys
 import numpy as np
 from PIL import Image, ImageDraw
 
-from .palette import (ANIMATED, CC1_RAMP, CC2_RAMP, PAL, PURE_WHITE, rgb_of)
+from .palette import (ANIMATED, CC1_RAMP, CC2_RAMP, PAL, PURE_WHITE, SAFE,
+                      SAFE_2CC, Quantiser, rgb_of)
 
 # Ranges the game rewrites at draw time. Two of them are hazards and two are
 # features, and telling them apart is the whole job of `check`.
@@ -85,6 +87,59 @@ def _reserved_of(index):
         if index in indices:
             return name
     return None
+
+
+def _rgb(value):
+    """Parse one command-line colour written as R,G,B."""
+    try:
+        parts = tuple(int(part.strip()) for part in value.split(","))
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            "colour must be three integers written as R,G,B")
+    if len(parts) != 3 or any(part < 0 or part > 255 for part in parts):
+        raise argparse.ArgumentTypeError(
+            "colour must be three integers from 0 to 255, written as R,G,B")
+    return parts
+
+
+def _write_swatches(rows, path):
+    """Write requested/result pairs as labelled colour swatches."""
+    row_h, width = 44, 420
+    img = Image.new("RGB", (width, row_h * len(rows)), (24, 26, 30))
+    draw = ImageDraw.Draw(img)
+    for row, (wanted, index, result, distance) in enumerate(rows):
+        y = row * row_h
+        draw.rectangle([8, y + 6, 47, y + 37], fill=wanted,
+                       outline=(230, 232, 236))
+        draw.rectangle([56, y + 6, 95, y + 37], fill=result,
+                       outline=(230, 232, 236))
+        draw.text((106, y + 8),
+                  "{}, {}, {}  ->  0x{:02X}  ({}, {}, {})".format(
+                      *wanted, index, *result),
+                  fill=(230, 232, 236))
+        draw.text((106, y + 23), "distance {:.1f}".format(distance),
+                  fill=(180, 186, 194))
+    img.save(path)
+
+
+def cmd_quantise(args):
+    """Show exactly what one or more RGB colours become in the game palette."""
+    quantiser = Quantiser(SAFE_2CC if args.two_cc else SAFE)
+    rows = []
+    for wanted in args.colours:
+        index = quantiser.index_of(wanted)
+        result = rgb_of(index)
+        delta = ((np.asarray(wanted, dtype=np.float32) - result)
+                 * Quantiser.WEIGHTS)
+        distance = float(np.sqrt((delta ** 2).sum()))
+        rows.append((wanted, index, result, distance))
+        print("{:3d},{:3d},{:3d}  ->  index 0x{:02X}  "
+              "({:3d},{:3d},{:3d})  distance {:.1f}".format(
+                  *wanted, index, *result, distance))
+    if args.swatch:
+        _write_swatches(rows, args.swatch)
+        print("wrote", args.swatch)
+    return 0
 
 
 def cmd_check(args):
@@ -169,6 +224,14 @@ def main(argv=None):
     p = sub.add_parser("palette", help="draw a key of the OpenTTD DOS palette")
     p.add_argument("output", nargs="?")
     p.set_defaults(func=cmd_palette)
+
+    p = sub.add_parser("quantise", help="preview RGB colours in the game palette")
+    p.add_argument("colours", nargs="+", type=_rgb, metavar="R,G,B")
+    p.add_argument("--2cc", dest="two_cc", action="store_true",
+                   help="avoid the second company-colour ramp too")
+    p.add_argument("--swatch", metavar="OUT.PNG",
+                   help="write requested and quantised colours side by side")
+    p.set_defaults(func=cmd_quantise)
 
     p = sub.add_parser("check", help="audit sprite sheets")
     p.add_argument("sheets", nargs="+")
