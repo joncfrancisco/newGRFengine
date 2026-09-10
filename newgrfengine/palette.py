@@ -16,8 +16,8 @@ Anything a model paints into one of those ranges stops being the colour it
 was drawn in. A Tuscan-red locomotive that quantises into 0xC6-0xCD comes out
 of the depot painted in the company's colours instead, and changes colour when
 the player changes theirs. So quantisation here works against an explicit
-allow-list rather than the whole 256, and the default list is the safe middle
-of the palette.
+allow-list rather than the whole 256, and the default list spells out the
+ordinary-colour ranges on either side of the first company-colour ramp.
 
 The table itself is read from the bundled GIMP palette file, so the engine has
 no import-time dependency on nml; if nml *is* installed its copy is preferred,
@@ -42,8 +42,10 @@ CC2_RAMP = tuple(range(0x50, 0x58))      # 80-87, company colour 2 under 2CC
 ANIMATED = tuple(range(0xE3, 0xFF))
 PURE_WHITE = 0xFF
 
-#: Indices safe for ordinary painted colour in any set.
-SAFE = tuple(range(1, 198))
+#: Indices safe for ordinary painted colour in any set. 0xC6-0xCD is the
+#: first company-colour ramp, but the ordinary green and pale-blue colours at
+#: 0xCE-0xD6 are safe to use. 0xD7-0xE2 is the magenta placeholder ramp.
+SAFE = tuple(range(1, 0xC6)) + tuple(range(0xCE, 0xD7))
 #: Indices safe for a set that sets a 2CC flag: 0x50-0x57 becomes a company
 #: colour there, so the green ramp in the middle of SAFE has to go.
 SAFE_2CC = tuple(i for i in SAFE if i not in CC2_RAMP)

@@ -144,10 +144,11 @@ are not paint — the game rewrites them at draw time:
 | `0xFF` | pure white, used as a marker in several places |
 
 Quantisation therefore works against an allow-list, not the whole 256. `SAFE`
-is the middle of the palette; `SAFE_2CC` also drops the green ramp that a 2CC
-set loses. A locomotive whose Tuscan red quantises into `0xC6–0xCD` comes out of
-the depot in the player's colours instead, and changes colour when they change
-theirs.
+excludes those reserved ranges and the magenta placeholder ramp at
+`0xD7–0xE2`; `SAFE_2CC` also drops the green ramp that a 2CC set loses. The
+ordinary greens and pale blues at `0xCE–0xD6` remain available. A locomotive
+whose Tuscan red quantises into `0xC6–0xCD` comes out of the depot in the
+player's colours instead, and changes colour when they change theirs.
 
 Company colour is available deliberately as a material:
 
@@ -338,9 +339,15 @@ NML can use `render`, `sheet` and `nmlwrite` directly and skip it.
 
 ```
 python -m newgrfengine palette [out.png]     draw a key of the DOS palette
+python -m newgrfengine quantise R,G,B [...]  preview RGB colours in that palette
 python -m newgrfengine check <sheet.png>...  audit a sheet
 python -m newgrfengine build <module>        build a project module
 ```
+
+`quantise` reports the exact palette index, resulting RGB value and weighted
+colour distance before a set is rendered. Pass `--2cc` for a set using two
+company colours, or `--swatch out.png` to write the requested and resulting
+colours side by side.
 
 `check` is the one worth putting in a Makefile. A sheet is an ordinary PNG and
 anything can produce one — this renderer, a pixel editor, a hand touch-up — and
