@@ -140,7 +140,7 @@ are not paint — the game rewrites them at draw time:
 | `0x00` | transparent |
 | `0x50–0x57` | the second company colour, in a set that sets a 2CC flag |
 | `0xC6–0xCD` | the company colour, always |
-| `0xF5–0xFE` | animated: fire, water sparkle, the fizzy-drink glow |
+| `0xE3–0xFE` | animated: fire, water sparkle, the fizzy-drink glow |
 | `0xFF` | pure white, used as a marker in several places |
 
 Quantisation therefore works against an allow-list, not the whole 256. `SAFE`
