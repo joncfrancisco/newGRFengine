@@ -46,7 +46,7 @@ class Vehicle:
 
     def __init__(self, ident, name, model, length_ft, slot, feature=TRAIN,
                  scale=RAIL, properties=None, graphics=None, purchase=None,
-                 overhang=0.0, buy_sprite=True):
+                 overhang=0.0, buy_sprite=True, **meta):
         self.ident = ident
         self.name = name
         self._model = model
@@ -64,6 +64,11 @@ class Vehicle:
         self.overhang = float(overhang)
         self.buy_sprite = buy_sprite
         self.drawn = None
+        #: Columns the fleet table carries that the engine itself does not
+        #: model (kind, balanced_speed, ...) - kept here so the table stays
+        #: the single source of truth instead of a parallel dict at the call
+        #: site. See issue #7.
+        self.meta = meta
 
     def build_model(self):
         """The model, fitted to its prototype length and its slot."""

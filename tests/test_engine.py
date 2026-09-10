@@ -533,6 +533,23 @@ def test_vehicle_rejects_a_slot_outside_1_to_8():
         Vehicle("a", "A", model, 85, 0)
 
 
+def test_vehicle_keeps_unknown_keyword_arguments_as_meta():
+    """A fleet table wants columns the engine does not model (kind,
+    balanced_speed, ...); Vehicle(**entry) used to reject them outright,
+    forcing call sites to filter the dict by hand and defeating the table as
+    single source of truth. Issue #7."""
+    model = box(-6, 6, -1.5, 1.5, 3, 8, (200, 200, 200))
+    entry = dict(ident="a", name="A", model=model, length_ft=85, slot=8,
+                 kind="locomotive", balanced_speed=70)
+    vehicle = Vehicle(**entry)
+    assert vehicle.meta == {"kind": "locomotive", "balanced_speed": 70}
+
+
+def test_vehicle_meta_defaults_to_empty():
+    model = box(-6, 6, -1.5, 1.5, 3, 8, (200, 200, 200))
+    assert Vehicle("a", "A", model, 85, 8).meta == {}
+
+
 # ------------------------------------------------------------------ build --
 
 EXAMPLES_DIR = os.path.join(
