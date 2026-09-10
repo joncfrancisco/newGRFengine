@@ -178,13 +178,13 @@ def render_direction(model, direction, spec=DEFAULT, tags=False):
         if d_tag is not None:
             d_tag.polygon(screen, fill=int(tag))
 
-    weight, indices = _resolve(np.asarray(img, dtype=np.float32),
-                               np.asarray(cover, dtype=np.float32) / 255.0,
-                               np.asarray(forced), h, w, ss, spec)
+    _, indices = _resolve(np.asarray(img, dtype=np.float32),
+                          np.asarray(cover, dtype=np.float32) / 255.0,
+                          np.asarray(forced), h, w, ss, spec)
     if not tags:
         return _crop(indices, x0, y0, direction)
 
-    flat_tags = _majority(np.asarray(tagmap), h, w, ss, weight)
+    flat_tags = _majority(np.asarray(tagmap), h, w, ss)
     sprite, box = _crop(indices, x0, y0, direction, want_box=True)
     if box is None:
         return sprite, np.zeros((0, 0), dtype=np.uint8)
@@ -225,7 +225,7 @@ def _resolve(rgb, cover, forced, h, w, ss, spec):
     return weight, indices
 
 
-def _majority(values, h, w, ss, weight):
+def _majority(values, h, w, ss):
     """Downsample an integer label map by majority over the covered subpixels."""
     blocks = values.reshape(h, ss, w, ss)
     best_count = np.zeros((h, w), dtype=np.float32)

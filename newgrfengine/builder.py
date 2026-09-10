@@ -51,6 +51,10 @@ class Vehicle:
         self.name = name
         self._model = model
         self.length_ft = float(length_ft)
+        if not 1 <= int(slot) <= 8:
+            raise ValueError(
+                "slot must be 1..8 - it is the NML `length` property, in "
+                "eighths of a tile; got {!r}".format(slot))
         self.slot = int(slot)
         self.feature = feature
         self.scale = scale

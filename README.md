@@ -421,7 +421,7 @@ artwork, and the bundled DOS palette file come from
 front/middle/back templates are what this engine's `longsprite` module computes
 instead of measuring.
 
-Built for NML 0.9. Not affiliated with OpenTTD.
+Built for NML 0.7. Not affiliated with OpenTTD.
 
 [njt]: https://github.com/joncfrancisco/njtransit
 [jp]: https://github.com/OpenTTD-JPplus/JPplusShinkansen

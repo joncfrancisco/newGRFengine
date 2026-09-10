@@ -21,9 +21,9 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from newgrfengine import (COMPANY, GRID, RAIL, ROAD, TIGHT, Lighting, Model,
-                          SpriteSheet, box, direction_angle, loft, prism,
-                          project, render_model, render_purchase, section,
-                          window_row)
+                          SpriteSheet, Vehicle, box, direction_angle, loft,
+                          prism, project, render_model, render_purchase,
+                          section, window_row)
 from newgrfengine.geometry import NUM_DIRS, TILE_PX, TILE_UNITS, VEHICLE_LENGTH
 from newgrfengine.longsprite import (clip_x, nml_switches, render_long,
                                      split_overhang, step_vector)
@@ -492,6 +492,45 @@ def test_loft_of_two_identical_sections_is_a_box():
 def test_prism_normals_are_unit_length():
     for quad in prism(-2, 2, 0, 3, 1.5, 1.0, (1, 1, 1), facets=12):
         assert sum(c * c for c in quad.normal) == pytest.approx(1.0)
+
+
+def test_tagged_rejects_a_tag_outside_the_8bpp_label_range():
+    """tag ends up in an 8bpp label image (render.py); out of range either
+    collides with the untagged value or clamps silently. See issue #18."""
+    model = box(0, 1, 0, 1, 0, 1, (1, 1, 1))
+    with pytest.raises(ValueError):
+        model.tagged(0)
+    with pytest.raises(ValueError):
+        model.tagged(256)
+
+
+def test_tagged_accepts_the_full_8bpp_label_range():
+    model = box(0, 1, 0, 1, 0, 1, (1, 1, 1))
+    assert model.tagged(1).quads[0].tag == 1
+    assert model.tagged(255).quads[0].tag == 255
+
+
+# ------------------------------------------------------------ housekeeping --
+
+def test_running_gear_materials_are_all_exported():
+    """`from newgrfengine import *` is the documented entry point (README); a
+    material missing from __all__ cannot be reached that way. Issue #18."""
+    import newgrfengine as ng
+    for name in ("BOGIE", "WHEEL", "UNDER", "PANTO", "ROOF_POD", "LIGHT",
+                "TAIL"):
+        assert hasattr(ng, name), name
+        assert name in ng.__all__, name
+
+
+def test_vehicle_rejects_a_slot_outside_1_to_8():
+    """slot is the NML `length` property, in eighths of a tile. Unchecked, a
+    typo like slot=18 used to render happily and only fail much later, inside
+    nmlc, with a message that did not point back at the vehicle. Issue #18."""
+    model = box(-6, 6, -1.5, 1.5, 3, 8, (200, 200, 200))
+    with pytest.raises(ValueError):
+        Vehicle("a", "A", model, 85, 18)
+    with pytest.raises(ValueError):
+        Vehicle("a", "A", model, 85, 0)
 
 
 # ------------------------------------------------------------------ build --

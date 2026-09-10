@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Build the demonstration set: models in, njtransit_demo.grf out.
+Build the demonstration set: models in, demo.grf out.
 
 Run it from this directory:
 
