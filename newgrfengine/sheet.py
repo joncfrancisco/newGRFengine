@@ -102,6 +102,7 @@ class SpriteSheet:
         """Add one vehicle's sprites, and optionally its purchase-menu sprite."""
         row = Row(name, list(sprites), purchase)
         self.rows.append(row)
+        self._cell = self._origin = self._views = None
         return row
 
     # -- layout ---------------------------------------------------------------
