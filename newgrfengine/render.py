@@ -205,21 +205,23 @@ def _resolve(rgb, cover, forced, h, w, ss, spec):
 
     indices = spec.quantiser(colour)
 
-    ramp = np.array(spec.cc1 + spec.cc2, dtype=np.uint8)
     if forced.any():
         blocks = forced.reshape(h, ss, w, ss)
-        best_count = np.zeros((h, w), dtype=np.float32)
-        best_index = np.zeros((h, w), dtype=np.uint8)
-        for value in ramp:
-            count = (blocks == value).sum(axis=(1, 3)).astype(np.float32)
-            better = count > best_count
-            best_count = np.where(better, count, best_count)
-            best_index = np.where(better, value, best_index)
-        # majority of the covered subpixels, not of the whole block: an edge
-        # pixel that is 6/16 vehicle and all of it company colour is company
-        # colour, not a blend with the background.
-        wins = (best_count * 2.0 > np.maximum(weight, 1e-6)) & (best_count > 0)
-        indices = np.where(wins, best_index, indices).astype(np.uint8)
+        for ramp in (spec.cc1, spec.cc2):
+            ramp_count = np.zeros((h, w), dtype=np.float32)
+            best_count = np.zeros((h, w), dtype=np.float32)
+            best_index = np.zeros((h, w), dtype=np.uint8)
+            for value in ramp:
+                count = ((blocks == value) * cover).sum(axis=(1, 3))
+                ramp_count += count
+                better = count > best_count
+                best_count = np.where(better, count, best_count)
+                best_index = np.where(better, value, best_index)
+            # Vote by ramp over covered subpixels before choosing its most
+            # frequent shade. Shade ties use the first entry in ramp order;
+            # a ramp tied with fixed paint or another ramp does not win.
+            wins = ramp_count * 2.0 > np.maximum(weight, 1e-6)
+            indices = np.where(wins, best_index, indices).astype(np.uint8)
 
     indices[alpha < spec.alpha] = 0
     return weight, indices

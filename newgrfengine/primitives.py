@@ -110,17 +110,17 @@ def loft(sections, mat, top_mat=None, caps=True, layer=L_SOLID):
     for a, b in zip(sections, sections[1:]):
         ca, cb = corners(a), corners(b)
         faces = [
-            (top_mat, [ca["tl"], cb["tl"], cb["tr"], ca["tr"]], True),    # roof
-            (mat, [ca["br"], cb["br"], cb["tr"], ca["tr"]], False),       # y+
-            (mat, [ca["bl"], cb["bl"], cb["tl"], ca["tl"]], False),       # y-
+            (top_mat, [ca["tl"], cb["tl"], cb["tr"], ca["tr"]], True, 1), # roof
+            (mat, [ca["br"], cb["br"], cb["tr"], ca["tr"]], False, 1),    # y+
+            (mat, [ca["bl"], cb["bl"], cb["tl"], ca["tl"]], False, -1),   # y-
         ]
-        for face_mat, pts, is_top in faces:
+        for face_mat, pts, is_top, sign in faces:
             if _degenerate(pts):
                 continue
             n = quad_normal(pts)
-            if not is_top and n[1] < 0:
-                n = (-n[0], -n[1], -n[2])
-            if is_top and n[2] < 0:
+            # Orient each flank toward its own side, preserving the x/z
+            # components from tapering and tumblehome.
+            if n[2 if is_top else 1] * sign < 0:
                 n = (-n[0], -n[1], -n[2])
             q.append(Quad(pts, face_mat, n, top=is_top, layer=layer))
 
