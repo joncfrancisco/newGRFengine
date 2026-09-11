@@ -18,8 +18,6 @@ import sys
 import numpy as np
 import pytest
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from newgrfengine import (COMPANY, GRID, RAIL, ROAD, TIGHT, Lighting, Model,
                           SpriteSheet, Vehicle, box, direction_angle, loft,
                           prism, project, render_model, render_purchase,

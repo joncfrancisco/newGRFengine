@@ -114,6 +114,14 @@ gap, which is the correct read: it *is* a short engine sharing a slot built for
 something bigger. A `length_ft` estimate that runs long is capped at the slot,
 so a generous guess can never make a sprite overrun into the next vehicle.
 
+`fit()` deliberately scales only the model's x axis. Width and height are pixel
+art proportions, not physical feet: as a useful starting point, a rail carbody
+about 3.5 world units wide and 6 units tall reads well beside a full-length
+coach. Lay the raw model out near its final proportions before calling `fit()`;
+otherwise a 14-unit-long, 13-unit-tall model becomes roughly 7.7 units long but
+stays 13 tall. The project build report prints the fitted x/y/z extents and
+warns when the result is taller than it is long.
+
 **Road vehicles get their own calibration, and this is not a fudge.** At the
 rail scale a 40 ft bus comes out about seven pixels long — too few to carry a
 windscreen, a door and three window bays, and dwarfed by the body height those
@@ -291,8 +299,10 @@ rather than burying it.
 ## Looking at it first
 
 ```python
-contact_sheet([("railcar", sprites), ("coach", coach_sprites)]).save("preview.png")
-consist([(loco, 7), (coach, 8), (coach, 8)], direction=1).save("consist.png")
+contact_sheet([("railcar", sprites), ("coach", coach_sprites)],
+              reference="rail_coach").save("preview.png")
+consist([(loco, 7), (coach, 8), (coach, 8)], direction=1,
+        reference="rail_coach").save("consist.png")
 ```
 
 `consist` is the one that catches real mistakes. It lays vehicles end to end at
@@ -301,7 +311,11 @@ projected through the same mapping — so a coupling gap that is too wide, a
 sprite that overruns its neighbour, or a set whose vehicles are all the same
 drawn size shows up here rather than in a screenshot three days later. It draws
 a diagonal as readily as a straight, because a set that lines up on straight
-track can still come apart on a curve.
+track can still come apart on a curve. The optional `rail_coach` reference is
+an unbranded, code-generated 85 ft / 8-of-8 silhouette. It provides a stable
+vanilla-scale measuring stick without borrowing base-set artwork. A custom
+`(name, sprites)` contact-sheet reference or `(sprites, slot)` consist
+reference can be supplied instead.
 
 ---
 
@@ -324,11 +338,37 @@ reference, and calls `nmlc`. The build report prints how much of its slot each
 vehicle actually filled, so a wrong `length_ft` is visible immediately:
 
 ```
-railcar               7.70 of 8 units  ( 96% of slot)     85 ft
-steam                 6.34 of 7 units  ( 91% of slot)     70 ft
-tram                  7.70 of 8 units  ( 96% of slot)     90 ft  capped
-bus                   6.84 of 8 units  ( 86% of slot)     40 ft
+railcar               7.70 of 8 units  ( 96% of slot)     85 ft    7.7 x  3.6 x 11.2  WARN taller than long
+steam                 6.34 of 7 units  ( 91% of slot)     70 ft    6.3 x  3.2 x  8.1  WARN taller than long
+tram                  7.70 of 8 units  ( 96% of slot)     90 ft    7.7 x  3.0 x  9.2  capped, WARN taller than long
+bus                   6.84 of 8 units  ( 86% of slot)     40 ft    6.8 x  3.1 x  6.8
 ```
+
+### Realistic and balanced property variants
+
+A project can derive parameter-guarded property overrides directly from the
+same fleet table. The base `properties` are the default; each named variant
+contains only the values that may differ:
+
+```python
+from newgrfengine import IntParam
+
+stats = IntParam(0, "stats",
+                 values={0: "Realistic", 1: "Game-balanced"},
+                 default=0)
+project = Project(..., variant_param=stats)
+project.add(Vehicle(...,
+    properties={"speed": nw.mph(125), "power": nw.hp(3200)},
+    variants={"balanced": {"speed": nw.mph(110),
+                            "power": nw.hp(3600)}}))
+```
+
+`Project` writes the parameter and its language strings, removes variant values
+that are unchanged from the base, and emits the guarded override blocks after
+the vehicle items so NML's file ordering cannot erase them. Integer keys and
+explicit `aliases=` on `IntParam` are available when a display name is not a
+convenient key. `project.variant_report()` returns the derived comparison as a
+Markdown table suitable for a roster document.
 
 Nothing in the renderer requires this layer. A project with its own ideas about
 NML can use `render`, `sheet` and `nmlwrite` directly and skip it.
@@ -385,7 +425,9 @@ is whether the shapes read at 24 pixels, not whether the stripes are pretty.
 project": one vehicle, one file, model to compiled `.grf`, instead of the
 demo's six. A double-decker commuter coach needs no new primitive — its
 silhouette comes entirely from height, two `window_row()` bands separated by
-a belt `side_decal()` marking the floor between levels.
+a belt `side_decal()` marking the floor between levels. Its overall height is
+about 15% above the single-level coach, rather than an exaggerated two-storey
+stack.
 
 ---
 

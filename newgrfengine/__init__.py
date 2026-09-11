@@ -39,7 +39,7 @@ from .parts import (BOGIE, LIGHT, PANTO, ROOF_POD, TAIL, UNDER, WHEEL, axles,
 from .preview import consist, contact_sheet
 from .primitives import (box, end_decal, loft, plate, prism, ribs, section,
                          side_decal, strut, top_decal, window_row)
-from .builder import ROADVEH, TRAIN, Project, Vehicle
+from .builder import ROADVEH, TRAIN, IntParam, Project, Vehicle
 from .render import (DEFAULT, RenderSpec, Sprite, render_direction,
                      render_model, render_purchase)
 from .scale import RAIL, ROAD, TRAM, LengthScale
@@ -60,7 +60,7 @@ __all__ = [
     "consist", "contact_sheet",
     "box", "end_decal", "loft", "plate", "prism", "ribs", "section",
     "side_decal", "strut", "top_decal", "window_row",
-    "ROADVEH", "TRAIN", "Project", "Vehicle",
+    "ROADVEH", "TRAIN", "IntParam", "Project", "Vehicle",
     "DEFAULT", "RenderSpec", "Sprite", "render_direction", "render_model",
     "render_purchase",
     "RAIL", "ROAD", "TRAM", "LengthScale",

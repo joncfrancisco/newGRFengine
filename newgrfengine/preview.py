@@ -17,16 +17,67 @@ track can still come apart on a curve.
 
 from __future__ import annotations
 
+from functools import lru_cache
+
 import numpy as np
 from PIL import Image, ImageDraw
 
 from .geometry import direction_angle, project, rotate_z
 from .palette import PAL
-from .render import SIDE_ON
+from .render import SIDE_ON, render_model
 
 GRASS = (58, 92, 56)
 GRASS_ALT = (52, 84, 50)
 INK = (232, 236, 232)
+
+
+@lru_cache(maxsize=None)
+def _builtin_reference(name):
+    """Return (label, sprites, slot) for a scale-calibration silhouette."""
+    if name != "rail_coach":
+        raise ValueError(
+            "unknown preview reference {!r}; available: rail_coach".format(name))
+
+    # Kept here as geometry rather than as borrowed base-set artwork: it is an
+    # unbranded 85 ft / 8-of-8 measuring stick, and rendering it through the
+    # same pipeline makes its scale independent of a bundled bitmap.
+    from .parts import bogies, underframe
+    from .primitives import box, window_row
+    from .scale import RAIL
+
+    half_w = 1.75
+    model = bogies(14.5, half_w, top=2.55, inset=2.3)
+    model += underframe(14.5, half_w, 2.3, 3.35)
+    model += box(-7.25, 7.25, -half_w, half_w, 3.15, 8.7,
+                 (176, 180, 184))
+    model += window_row(-6.2, 6.2, 5.95, 7.95, half_w, 7,
+                        (48, 60, 74))
+    model, _ = RAIL.fit(model, 85, 8)
+    return "reference: 85 ft rail coach", render_model(model), 8
+
+
+def _contact_reference(reference):
+    if isinstance(reference, str):
+        name, sprites, _ = _builtin_reference(reference)
+        return name, sprites
+    try:
+        name, sprites = reference
+    except (TypeError, ValueError):
+        raise ValueError(
+            "contact-sheet reference must be 'rail_coach' or (name, sprites)")
+    return name, sprites
+
+
+def _consist_reference(reference):
+    if isinstance(reference, str):
+        _, sprites, slot = _builtin_reference(reference)
+        return sprites, slot
+    try:
+        sprites, slot = reference
+    except (TypeError, ValueError):
+        raise ValueError(
+            "consist reference must be 'rail_coach' or (sprites, slot)")
+    return sprites, slot
 
 
 def to_rgb(sprite, background=GRASS):
@@ -48,14 +99,19 @@ def _font():
 
 
 def contact_sheet(entries, scale=4, label=True, background=GRASS,
-                  alt=GRASS_ALT, pad=2):
+                  alt=GRASS_ALT, pad=2, reference=None):
     """Every direction of every vehicle on one grid.
 
-    `entries` is a sequence of (name, sprites).
+    `entries` is a sequence of (name, sprites). ``reference="rail_coach"``
+    prepends a neutral 85 ft coach, so the set is judged against a stable
+    scale rather than only against itself. A custom ``(name, sprites)`` pair
+    may be supplied instead.
     """
     entries = list(entries)
     if not entries:
         raise ValueError("nothing to preview")
+    if reference is not None:
+        entries.insert(0, _contact_reference(reference))
     cell_w = max(s.width for _, sprites in entries for s in sprites) + pad * 2
     cell_h = max(s.height for _, sprites in entries for s in sprites) + pad * 2
     cols = max(len(sprites) for _, sprites in entries)
@@ -91,18 +147,23 @@ def contact_sheet(entries, scale=4, label=True, background=GRASS,
     return img
 
 
-def consist(items, direction=SIDE_ON, scale=4, background=GRASS, margin=8):
+def consist(items, direction=SIDE_ON, scale=4, background=GRASS, margin=8,
+            reference=None):
     """Vehicles coupled up, spaced exactly as OpenTTD will space them.
 
     `items` is a sequence of (sprites, slot), where `slot` is the NML `length`
-    property in world units. The game advances by that much per vehicle along
-    the vehicle's own x axis, so the step on screen is that vector projected -
-    which for a diagonal is 2 px across and 1 px down per world unit, and for
-    a straight is 2.83 px across and none down.
+    property in world units. ``reference="rail_coach"`` places a neutral
+    85 ft / 8-of-8 coach at the head as a scale check; a custom
+    ``(sprites, slot)`` pair may be supplied instead. The game advances by the
+    slot along the vehicle's own x axis, so the step on screen is that vector
+    projected - which for a diagonal is 2 px across and 1 px down per world
+    unit, and for a straight is 2.83 px across and none down.
     """
     items = list(items)
     if not items:
         raise ValueError("nothing to preview")
+    if reference is not None:
+        items.insert(0, _consist_reference(reference))
     angle = direction_angle(direction)
     step_x, step_y = project(rotate_z((1.0, 0.0, 0.0), np.cos(angle),
                                       np.sin(angle)))
