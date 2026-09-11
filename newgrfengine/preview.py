@@ -151,13 +151,18 @@ def consist(items, direction=SIDE_ON, scale=4, background=GRASS, margin=8,
             reference=None):
     """Vehicles coupled up, spaced exactly as OpenTTD will space them.
 
-    `items` is a sequence of (sprites, slot), where `slot` is the NML `length`
-    property in world units. ``reference="rail_coach"`` places a neutral
-    85 ft / 8-of-8 coach at the head as a scale check; a custom
-    ``(sprites, slot)`` pair may be supplied instead. The game advances by the
-    slot along the vehicle's own x axis, so the step on screen is that vector
-    projected - which for a diagonal is 2 px across and 1 px down per world
-    unit, and for a straight is 2.83 px across and none down.
+    `items` is a sequence of (sprites, slot) in rear-to-front order along the
+    positive model x axis (the direction the noses point). `slot` is the NML
+    `length` property in world units. The distance from a rear vehicle to the
+    one ahead is (rear_slot + 1) // 2 + front_slot // 2: OpenTTD gives an odd
+    length's extra unit to the half ahead of its center. This is the game's
+    front-to-rear center-offset rule read in the opposite order.
+
+    ``reference="rail_coach"`` places a neutral 85 ft / 8-of-8 coach at the
+    rear as a scale check; a custom ``(sprites, slot)`` pair may be supplied
+    instead. Center distances are projected through the same mapping as the
+    sprites: 2 px across and 1 px down per diagonal world unit, or 2.83 px
+    across and none down in the broadside view.
     """
     items = list(items)
     if not items:
@@ -170,12 +175,15 @@ def consist(items, direction=SIDE_ON, scale=4, background=GRASS, margin=8,
 
     placed = []
     cursor = 0.0
+    previous_slot = None
     for sprites, slot in items:
+        if previous_slot is not None:
+            cursor += (previous_slot + 1) // 2 + slot // 2
         sprite = sprites[direction]
         px = cursor * step_x
         py = cursor * step_y
         placed.append((sprite, px + sprite.offset_x, py + sprite.offset_y))
-        cursor += float(slot)
+        previous_slot = slot
 
     xs = [x for _, x, _ in placed] + [x + s.width for s, x, _ in placed]
     ys = [y for _, _, y in placed] + [y + s.height for s, _, y in placed]

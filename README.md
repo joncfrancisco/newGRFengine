@@ -91,8 +91,9 @@ roster in which every vehicle is the same size.
 
 **The unit trap.** A tile is 16 world units, but a train vehicle is not.
 OpenTTD's `VEHICLE_LENGTH` is 8 against a tile's `TILE_SIZE` of 16, so a
-full-length 8/8 vehicle is **half a tile**, and the game spaces consecutive
-vehicles by exactly the NML `length` property in world units — not twice that.
+full-length 8/8 vehicle is **half a tile**. Equal-length vehicles have a center
+spacing of one NML `length` in world units; mixed lengths combine the adjacent
+half-lengths, with odd lengths rounded as described under previews below.
 A sprite drawn to fill a whole tile overlaps the vehicle behind it by about 45%.
 
 **The coarseness trap.** `length` is an integer from 1 to 8, so prototypes of
@@ -167,9 +168,11 @@ model += side_decal(-6.9, 5.6, 4.4, 5.6, 1.75, COMPANY)   # COMPANY2 for 2CC
 A company-coloured face resolves to a palette **index** in the reserved ramp
 rather than being quantised, with the face's shading choosing a position in the
 ramp — which is what keeps a company-coloured body reading as a 3D shape
-instead of a flat silhouette. Those pixels are then settled by majority vote per
-output pixel, because blending two ramp indices gives a third that is not in the
-ramp, and the face would come out of the depot half painted. The cost is that
+instead of a flat silhouette. Each output pixel first votes by company-colour
+ramp across its covered subpixels, combining votes from different shades. A
+ramp with more than half the coverage wins; its most frequent shade is used,
+with shade ties choosing the first entry in ramp order. A tie between ramps,
+or between a ramp and fixed paint, falls back to ordinary quantisation. The cost is that
 the boundary between a company-coloured panel and a fixed-colour one is not
 antialiased. That is a constraint of the palette, not of this renderer.
 
@@ -301,13 +304,18 @@ rather than burying it.
 ```python
 contact_sheet([("railcar", sprites), ("coach", coach_sprites)],
               reference="rail_coach").save("preview.png")
-consist([(loco, 7), (coach, 8), (coach, 8)], direction=1,
+consist([(coach, 8), (coach, 8), (loco, 7)], direction=1,
         reference="rail_coach").save("consist.png")
 ```
 
-`consist` is the one that catches real mistakes. It lays vehicles end to end at
-exactly the spacing the game will use — the NML `length` slot in world units,
-projected through the same mapping — so a coupling gap that is too wide, a
+`consist` is the one that catches real mistakes. Its input runs **rear to front**
+along positive model x, the direction the noses point. Adjacent center spacing
+is `(rear_slot + 1) // 2 + front_slot // 2` world units: the half ahead of an
+odd-length vehicle's center gets the extra unit. This is OpenTTD's
+[front-to-rear offset rule](https://github.com/OpenTTD/OpenTTD/blob/master/src/train.h)
+read in the opposite order. Thus 8/4 and 4/8 pairs both span 6 units, while
+5/4 spans 5 and 4/5 spans 4. The distances are projected through the same
+mapping as the sprites, so a coupling gap that is too wide, a
 sprite that overruns its neighbour, or a set whose vehicles are all the same
 drawn size shows up here rather than in a screenshot three days later. It draws
 a diagonal as readily as a straight, because a set that lines up on straight
@@ -316,6 +324,9 @@ an unbranded, code-generated 85 ft / 8-of-8 silhouette. It provides a stable
 vanilla-scale measuring stick without borrowing base-set artwork. A custom
 `(name, sprites)` contact-sheet reference or `(sprites, slot)` consist
 reference can be supplied instead.
+
+The consist reference is prepended at the rear. For example, pass coaches
+first and the locomotive last to put the locomotive at the front.
 
 ---
 
@@ -343,6 +354,40 @@ steam                 6.34 of 7 units  ( 91% of slot)     70 ft    6.3 x  3.2 x 
 tram                  7.70 of 8 units  ( 96% of slot)     90 ft    7.7 x  3.0 x  9.2  capped, WARN taller than long
 bus                   6.84 of 8 units  ( 86% of slot)     40 ft    6.8 x  3.1 x  6.8
 ```
+
+### Stable item IDs
+
+Set `numeric_id` when a vehicle needs a permanent savegame identity. Omitting
+it (or using `None`) keeps nmlc's automatic allocation. IDs must be integers
+from 0 through 65535 and unique within each feature: a train and a road vehicle
+may share a number, but two trains may not.
+
+```python
+fleet = [
+    dict(ident="coach", name="Coach", model=models.coach,
+         length_ft=85, slot=8, numeric_id=42),
+    dict(ident="railcar", name="Railcar", model=models.railcar,
+         length_ft=85, slot=8, numeric_id=43),
+]
+for entry in fleet:
+    project.add(Vehicle(**entry))
+```
+
+The coach emits `item(FEAT_TRAINS, coach, 42)`. Preserve published IDs when
+inserting, removing, or reordering vehicles, and reserve retired IDs instead
+of reusing them for different vehicles. For an existing release, preserve the
+IDs assigned by that release's compiler output when switching to explicit IDs.
+Automatic IDs can still change as the roster evolves.
+
+`Project` emits explicit-ID vehicle definitions before automatic ones so nmlc
+cannot allocate an explicit ID to an automatic vehicle first. Sprite-sheet and
+fleet order remain as supplied. If raw NML defines additional items, manage
+their IDs alongside the fleet's IDs. Project validation covers its own vehicles.
+
+Vehicle identifiers must also be unique, and their generated language keys
+must not collide: `coach` and `COACH` are rejected because both produce
+`STR_NAME_COACH` and `STR_PURCHASE_COACH`. Validation runs when adding vehicles
+and again before rendering or writing NML/language output.
 
 ### Realistic and balanced property variants
 

@@ -85,3 +85,31 @@ def test_consist_accepts_the_builtin_rail_reference():
 def test_unknown_builtin_reference_is_rejected(function, args):
     with pytest.raises(ValueError, match="available: rail_coach"):
         function(args, reference="ship")
+
+
+@pytest.mark.parametrize('direction', range(8))
+@pytest.mark.parametrize('slots,distance', [
+    ((8, 4), 6), ((4, 8), 6), ((8, 8), 8), ((5, 5), 5),
+    ((5, 4), 5), ((4, 5), 4), ((1, 2), 2), ((2, 1), 1),
+])
+def test_consist_center_offsets_follow_openttd_in_rear_to_front_order(direction, slots, distance):
+    image = np.asarray(consist(
+        [([_dot(1)] * 8, slots[0]), ([_dot(2)] * 8, slots[1])],
+        direction=direction, scale=1, background=(255, 0, 255)))
+    centers = [np.argwhere((image == rgb_of(i)).all(axis=-1))[0][::-1]
+               for i in (1, 2)]
+    angle = direction_angle(direction)
+    step = project(rotate_z((1, 0, 0), np.cos(angle), np.sin(angle)))
+    np.testing.assert_array_equal(centers[1] - centers[0],
+                                   np.rint(np.array(step) * distance).astype(int))
+
+
+def test_consist_accumulates_adjacent_distances_with_a_reference():
+    image = np.asarray(consist(
+        [([_dot(2)] * 8, 4), ([_dot(3)] * 8, 7)],
+        reference=([_dot(1)] * 8, 5), direction=1, scale=1,
+        background=(255, 0, 255)))
+    centers = [np.argwhere((image == rgb_of(i)).all(axis=-1))[0][::-1]
+               for i in (1, 2, 3)]
+    np.testing.assert_array_equal(centers[1] - centers[0], (10, -5))
+    np.testing.assert_array_equal(centers[2] - centers[1], (10, -5))
