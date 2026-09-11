@@ -27,6 +27,7 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+from numbers import Integral
 
 from . import nmlwrite as nw
 from .model import Model
@@ -131,11 +132,16 @@ class IntParam:
 
 
 class Vehicle:
-    """One buyable vehicle: what it looks like, how long it is, what it does."""
+    """One buyable vehicle: what it looks like, how long it is, what it does.
+
+    `numeric_id` optionally pins its NML item ID (0..65535). Keep published
+    IDs stable across roster edits; None leaves allocation to nmlc.
+    """
 
     def __init__(self, ident, name, model, length_ft, slot, feature=TRAIN,
                  scale=RAIL, properties=None, graphics=None, purchase=None,
-                 overhang=0.0, buy_sprite=True, variants=None, **meta):
+                 overhang=0.0, buy_sprite=True, variants=None, numeric_id=None,
+                 **meta):
         self.ident = ident
         self.name = name
         self._model = model
@@ -146,6 +152,8 @@ class Vehicle:
                 "eighths of a tile; got {!r}".format(slot))
         self.slot = int(slot)
         self.feature = feature
+        self.numeric_id = numeric_id
+        self._validate_numeric_id()
         self.scale = scale
         self.properties = dict(properties or {})
         self.graphics = dict(graphics or {})
@@ -162,6 +170,15 @@ class Vehicle:
         #: the single source of truth instead of a parallel dict at the call
         #: site. See issue #7.
         self.meta = meta
+
+    def _validate_numeric_id(self):
+        if self.numeric_id is not None and (
+                isinstance(self.numeric_id, bool)
+                or not isinstance(self.numeric_id, Integral)
+                or not 0 <= self.numeric_id <= 65535):
+            raise ValueError(
+                "vehicle {!r}: numeric_id must be an integer in 0..65535 "
+                "or None; got {!r}".format(self.ident, self.numeric_id))
 
     def build_model(self):
         """The model, fitted to its prototype length and its slot."""
@@ -226,8 +243,38 @@ class Project:
     # -- assembly -------------------------------------------------------------
 
     def add(self, vehicle):
+        self._validate_vehicles(self.vehicles + [vehicle])
         self.vehicles.append(vehicle)
         return vehicle
+
+    def _validate_vehicles(self, vehicles=None):
+        """Check identities before rendering or emitting project output.
+
+        Recheck at output time because fleet tables and Vehicle fields remain
+        mutable after add(). Numeric IDs are local to each NML feature, while
+        item identifiers and generated language keys are global.
+        """
+        identifiers, keys, numeric_ids = {}, {}, {}
+        for vehicle in self.vehicles if vehicles is None else vehicles:
+            ident = vehicle.ident
+            if ident in identifiers:
+                raise ValueError("duplicate vehicle identifier {!r}".format(ident))
+            identifiers[ident] = vehicle
+            for key in (vehicle.name_key, vehicle.purchase_key):
+                if key in keys:
+                    raise ValueError(
+                        "vehicles {!r} and {!r} share generated language key {}"
+                        .format(keys[key], ident, key))
+                keys[key] = ident
+            vehicle._validate_numeric_id()
+            if vehicle.numeric_id is not None:
+                key = (vehicle.feature, vehicle.numeric_id)
+                if key in numeric_ids:
+                    raise ValueError(
+                        "vehicles {!r} and {!r} share numeric_id {} in {}"
+                        .format(numeric_ids[key], ident, vehicle.numeric_id,
+                                vehicle.feature))
+                numeric_ids[key] = ident
 
     def vehicle(self, *args, **kwargs):
         return self.add(Vehicle(*args, **kwargs))
@@ -263,6 +310,7 @@ class Project:
 
     def render(self, verbose=True):
         """Render every vehicle and pack the sheet."""
+        self._validate_vehicles()
         self.sheet = SpriteSheet(self.name, layout=self.layout)
         self.rendered = {}
         for vehicle in self.vehicles:
@@ -294,6 +342,7 @@ class Project:
         return self.sheet.save(self.path(self.sheet_name))
 
     def write_lang(self, filename="english.lng"):
+        self._validate_vehicles()
         lang = self.lang
         lang.strings.setdefault("STR_GRF_NAME", self.title)
         lang.strings.setdefault("STR_GRF_DESC", self.description)
@@ -306,6 +355,7 @@ class Project:
         return lang.write(self.path(self.lang_dir, filename))
 
     def nml_text(self):
+        self._validate_vehicles()
         doc = nw.NML(self.header or self._default_header())
         params = list(self.params)
         if self.variant_param:
@@ -327,7 +377,10 @@ class Project:
         for text, heading, position in self.extra_nml:
             if position == "before_items":
                 doc.add(text, heading=heading)
-        doc.add("\n\n".join(self._item(v) for v in self.vehicles),
+        # nmlc allocates IDs in file order. Define explicit IDs first so an
+        # earlier automatic vehicle cannot silently claim the same ID.
+        item_order = sorted(self.vehicles, key=lambda v: v.numeric_id is None)
+        doc.add("\n\n".join(self._item(v) for v in item_order),
                 heading="vehicles")
         variants = self._variant_nml()
         if variants:
@@ -348,6 +401,7 @@ class Project:
             graphics["additional_text"] = nw.string(v.purchase_key)
         graphics.update(v.graphics)
         return nw.item(v.feature, v.ident, properties, graphics,
+                       numeric_id=v.numeric_id,
                        comment="{} - {:.0f} ft prototype".format(v.name, v.length_ft))
 
     @staticmethod

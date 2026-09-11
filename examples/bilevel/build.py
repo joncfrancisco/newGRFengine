@@ -74,6 +74,7 @@ def make_project():
     )
     project.add(Vehicle(
         ident="bilevel", name="Demonstrator Bi-Level Coach",
+        numeric_id=116,  # Preserve this example's previously automatic NML ID.
         model=bilevel_coach, length_ft=85, slot=8,
         properties={
             "introduction_date": nw.date(1990, 1, 1),
